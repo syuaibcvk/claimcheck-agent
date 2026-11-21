@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: claimcheck
+    runtime: python
+    plan: free
+    buildCommand: "echo 'ClaimCheck: standard library only, nothing to build'"
+    startCommand: "python app.py"
+    envVars:
+      # Render injects PORT automatically; app.py reads it (default 8000).
+      - key: PYTHON_VERSION
+        value: 3.12.3

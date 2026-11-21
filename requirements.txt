@@ -1,0 +1,2 @@
+# ClaimCheck uses only the Python 3 standard library.
+# There is nothing to install.
