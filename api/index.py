@@ -14,6 +14,7 @@ Pure Python 3 standard library. No third-party dependencies.
 import json
 import os
 import sys
+import urllib.parse
 from datetime import datetime, timezone
 
 # app.py lives in the repo root, one level above this file's directory.
@@ -50,8 +51,33 @@ def _html_response(start_response, html, status=200):
     return [body]
 
 
-def _handle_get(environ, start_response):
+def _resolve_path(environ):
+    """Return the route path for this request.
+
+    On Vercel, vercel.json rewrites every request to /api/index.py, so
+    PATH_INFO arrives as the rewrite destination rather than the path the
+    client asked for. The rewrite therefore carries the original path in
+    the __cc_path query parameter — route on that when present. Otherwise
+    strip a leading /api/index.py, /api/index or /api prefix from
+    PATH_INFO (an empty remainder means "/"), and fall back to PATH_INFO
+    as-is.
+    """
+    params = urllib.parse.parse_qs(environ.get("QUERY_STRING") or "")
+    values = params.get("__cc_path")
+    if values and values[0]:
+        path = values[0]
+        return path if path.startswith("/") else "/" + path
     path = environ.get("PATH_INFO") or "/"
+    for prefix in ("/api/index.py", "/api/index", "/api"):
+        if path == prefix:
+            return "/"
+        if path.startswith(prefix + "/"):
+            return path[len(prefix):]
+    return path
+
+
+def _handle_get(environ, start_response):
+    path = _resolve_path(environ)
     if path == "/":
         return _html_response(start_response, claimcheck.INDEX_HTML)
     if path == "/health":
@@ -78,7 +104,7 @@ def _handle_get(environ, start_response):
 
 
 def _handle_post(environ, start_response):
-    path = environ.get("PATH_INFO") or "/"
+    path = _resolve_path(environ)
     if path != "/check":
         return _json_response(
             start_response, {"error": "Not found."}, status=404)
